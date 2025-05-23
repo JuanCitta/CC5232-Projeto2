@@ -51,7 +51,7 @@ def gerar_historico(usuarios):
             
             jogador1 = random.choice(candidatos)
             oponentes_validos = []
-            for jogador in enumerate(candidatos):
+            for jogador in candidatos:
                 if jogador1[0] != jogador[0] and abs(jogador[2] - jogador1[2]) < ELO_RANGE:
                     oponentes_validos.append((jogador))
             if not oponentes_validos:
