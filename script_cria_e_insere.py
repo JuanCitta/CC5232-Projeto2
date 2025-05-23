@@ -1,8 +1,7 @@
 import random
 from faker import Faker
 import psycopg2
-import datetime
-from datetime import timedelta
+from datetime import datetime, date, timedelta
 from operator import itemgetter
 
 fake = Faker('pt_BR')
@@ -14,12 +13,14 @@ NUM_CLUBES = 5
 MAX_AMIGOS = 15
 TIPOS_DE_PARTIDA = ["Bullet", "Rápida","Padrão","Xadrez960","Por correspondência"]
 CARGOS = ["Administrador", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro"]
-DATA_INICIO = datetime.date(2025,1,1)
-DATA_FIM = datetime.datetime.now().date()
+DATA_INICIO = date(2025,1,1)
+DATA_FIM = datetime.now().date()
 duration = DATA_FIM - DATA_INICIO
 NUM_DIAS = duration.days
+DATA_PRIMEIRO_USUARIO = DATA_FIM
 # Funcoes auxiliares
-def usuario():
+def gerar_usuario():
+    global DATA_PRIMEIRO_USUARIO
     usuarios = []
     for i in range(1,NUM_USUARIOS+1):
         elo = 1000
@@ -27,123 +28,184 @@ def usuario():
         id = i
         data_criado = fake.date_between(DATA_INICIO,DATA_FIM)
         usuarios.append([id,nome_usuario,elo,data_criado])
-    
+        if data_criado < DATA_PRIMEIRO_USUARIO:
+            DATA_PRIMEIRO_USUARIO = data_criado
     return usuarios
     
-def historico(usuarios):
-    #mes = 1
+def gerar_historico(usuarios):
     historico = []
     id_partida = 1
-    elo = []
-    elo_usuario = {}
     #Itera pelos dias entre a criacao do banco e a data atual, para facilitar a continuidade dos elos
     for d in range (1,NUM_DIAS+1):
+        candidatos = []
         delta = timedelta(d)     
         offset = DATA_INICIO + delta 
         #apenas adiciona os usuarios com data de criacao posterior a partida
         for u in usuarios:
             if u[3]> offset:
-                elo.append([u[2],u[0]])
-        elo.sort()
+                candidatos.append(u)
+        candidatos.sort(key=lambda x:x[2])
         for p in range(abs(round((random.normalvariate(3,4)))) * NUM_USUARIOS): 
-            p1 = random.randint(1,len(elo) - 1)
-            p2 = p1-1 if elo[p1-1][0] - elo[p1][0] < ELO_RANGE else p1+1
-            id_p1 = elo[p1][1]
-            id_p2 = elo[p2][1]
-            res_esperado_p1 = 1/(1+10**((elo[p2][0]-elo[p1][0])/400))
-            res_esperado_p2 = 1/(1+10**((elo[p1][0]-elo[p2][0])/400))
+            if len(candidatos)< 2:
+                break
+            
+            jogador1 = random.choice(candidatos)
+            oponentes_validos = []
+            for jogador in enumerate(candidatos):
+                if jogador1[0] != jogador[0] and abs(jogador[2] - jogador1[2]) < ELO_RANGE:
+                    oponentes_validos.append((jogador))
+            if not oponentes_validos:
+                continue
+            jogador2 = random.choice(oponentes_validos)
+            res_esperado_p1 = 1/(1+10**((jogador2[2]-jogador1[2])/400))
+            res_esperado_p2 = 1/(1+10**((jogador1[2]-jogador2[2])/400))
             res = random.randint(0,1)
             if res == 0 :
-                ganhador = random.choice((p1,p2))
-                if ganhador == p1:
+                ganhador = random.choice((jogador1,jogador2))
+                if ganhador == 1:
                     res_p1 = 1
-                    res_p1_string = "Vitória"
+                    res_p1_str = "Vitória"
                     res_p2 = 0  
-                    res_p2_string = "Derrota"
+                    res_p2_str = "Derrota"
                 else:
                     res_p1 = 0
-                    res_p1_string = "Derrota"
+                    res_p1_str = "Derrota"
                     res_p2 = 1
-                    res_p2_string = "Vitória"
+                    res_p2_str = "Vitória"
             else:
                 res_p1 = 0.5
-                res_p1_string = "Empate"
+                res_p1_str = "Empate"
                 res_p2 = 0.5
-                res_p2_string = "Empate"
-            
-            novo_elo_p1 = round(elo[p1][0] + 15 * (res_p1 - res_esperado_p1),1)
-            novo_elo_p2 = round(elo[p2][0] + 15 * (res_p2 - res_esperado_p2),1)
+                res_p2_str = "Empate"
+                
+            novo_elo1 = round(jogador1[2] + 15 * (res_p1 - res_esperado_p1))
+            novo_elo2 = round(jogador2[2] + 15 * (res_p2 - res_esperado_p2))
             movimentos = round(random.normalvariate(35,5))
             precisao_p1 = round(random.normalvariate(55,5))
             precisao_p2 = round(random.normalvariate(55,5))
-            data = offset
             tipo = random.choice(TIPOS_DE_PARTIDA)
+            # if jogador1[0] == 2:
+            #     print(f"Elo novo: {novo_elo1} {res_p1_str} Elo oponente {novo_elo2}")
+            # elif jogador2[0] == 2:
+            #     print(f"Elo novo: {novo_elo2} {res_p2_str} Elo oponente {novo_elo1}")
+            jogador1[2] = novo_elo1
+            jogador2[2] = novo_elo2
             
-            historico.append((id_p1,id_p2,id_partida,novo_elo_p1,precisao_p1,movimentos,res_p1_string, data, tipo))
-            historico.append((id_p2,id_p1,id_partida,novo_elo_p2,precisao_p2,movimentos,res_p2_string, data, tipo))
-            elo[p1][0] = novo_elo_p1
-            elo[p2][0] = novo_elo_p2
+            for u in usuarios:
+                if u[0] == jogador1[0]:
+                    u[2] = novo_elo1
+                elif u[0] == jogador2[0]:
+                    u[2] = novo_elo2
             
-            elo_usuario.update({id_p1 : novo_elo_p1})
-            elo_usuario.update({id_p2 : novo_elo_p2})
+            if jogador1[0] > jogador2[0]:
+                jogador1, jogador2 = jogador2, jogador1  
+                res_p1_str, res_p2_str = res_p2_str, res_p1_str  
+                precisao_p1, precisao_p2 = precisao_p2, precisao_p1  
+                novo_elo1, novo_elo2 = novo_elo2, novo_elo1  
+            
+            historico.append((
+                id_partida,                     
+                jogador1[0], jogador2[0],       #IDs
+                jogador1[2], jogador2[2],       #Elos
+                precisao_p1, precisao_p2,       
+                movimentos,                
+                res_p1_str, res_p2_str,        
+                offset,              
+                tipo                      
+            ))
+            
             id_partida += 1
-        #if d == 28 and mes == 2:
-        #    mes = 3
-        #elif d == 31 and mes in DIAS_31:
-        #    mes+= 1
-        #elif d == 30:
-        #    mes+= 1
-
-    for id,elo in elo_usuario.items():
-        for u in usuarios:
-            if id == u[0]:
-                u[2] = elo
     return historico
             
 
 
-def clubes():
+def gerar_clubes():
     clubes = []
     for clube in range(1,NUM_CLUBES + 1):
         id_clube = clube
-        nome_clube = fake.village()
-        data_criacao = fake.date_between(DATA_INICIO,DATA_FIM)
+        nome_clube = fake.name()
+        data_criacao = fake.date_between(DATA_PRIMEIRO_USUARIO,DATA_FIM)
         clubes.append((id_clube,nome_clube,data_criacao))
+    return clubes
         
-def clube_usuario(usuarios,clubes):
+def gerar_clube_usuario(usuarios,clubes):
+    global DATA_PRIMEIRO_USUARIO
     clube_usuario = []
     for c in clubes:
         users = usuarios.copy()
         id_clube = c[0]
-        fundador = random.choice(users)
-        users.pop(fundador)
-        while(c[2] > fundador):
-            fundador = random.choice(usuarios)
-        clube_usuario.append((c[0],fundador,c[2],"Fundador"))
-        for u in range(1,abs(random.normalvariate(NUM_USUARIOS/5,NUM_USUARIOS/15))):
-            data_join = fake.date_between_dates(c[2])
+        candidatos = []
+        data_criacao = c[2]
+        for us in usuarios:
+            if us[3]<= data_criacao:
+                candidatos.append((us[0]))
+        if candidatos:
+            fundador = random.choice(users)
+            users.pop(users.index(fundador))
+        else:
+            continue
+        clube_usuario.append((c[0],fundador[0],c[2],"Fundador"))
+        for u in range(1,round(abs(random.normalvariate(NUM_USUARIOS/5,NUM_USUARIOS/15)))):
+            data_join = fake.date_between_dates(c[2],DATA_FIM)
             cargo = random.choice(CARGOS)
             usuario = random.choice(users)
-            users.pop(usuario)
+            users.pop(users.index(usuario))
             id_usuario = usuario[0]
             clube_usuario.append((id_clube,id_usuario,data_join,cargo))
     return clube_usuario
 
-def amizades(usuarios):
-    amizades = []
+def gerar_amizades(usuarios):
+    amizades = set()
+    amizades_existentes = {}
     users = usuarios.copy()
     for u in users:
-
-        for a in range(0,random.randint(0,MAX_AMIGOS)):
-            data1 = u[3]
+        candidatos = []
+        data_criacao = u[3]
+        id_usuario = u[0]
+        for us in usuarios:
+            if us[3]<= data_criacao and us[0] != id_usuario:
+                for amizade in amizades_existentes:
+                    candidatos.append((us[0]))
+        
+        if not candidatos:
+            continue
+        else:
+            for a in range(0,random.randint(0,MAX_AMIGOS)):
+                amigo = random.choice(candidatos)
+                candidatos.pop(candidatos.index(amigo))
+                id_amigo = amigo[0]
+                data = fake.date_between_dates(data_criacao,DATA_FIM)
+                if id_usuario < id_amigo:
+                    amizades.append((id_usuario,id_amigo,data))
+                else:
+                    amizades.append((id_amigo,id_usuario,data))
+            
     return amizades
-def inserir_no_banco():
+
+def gerar_dados():
+    usuarios = gerar_usuario()
+    clubes = gerar_clubes()
+    historico = gerar_historico(usuarios)
+    clube_usuario = gerar_clube_usuario(usuarios,clubes)
+    amizades = gerar_amizades(usuarios)
+    
+    dados = {
+        "usuarios" : usuarios,
+        "clubes" : clubes,
+        "historico" : historico,
+        "clube_usuario" : clube_usuario,
+        "amizades" : amizades
+    }
+    return dados
+    
+    
+def inserir_no_banco(dados):
     try:
         conn = psycopg2.connect(
-            host="db.kyxedeqogvcoshwlxdie.supabase.co",
-            database="postgres",
-            user="postgres",
-            password="aMUSGl7r02YQ6eKF"
+            host="-",
+            database="-",
+            user="-",
+            password="-"
         )
         cursor = conn.cursor()
         tabelas = [
@@ -157,22 +219,26 @@ def inserir_no_banco():
             CREATE TABLE usuario (
                 id BIGINT NOT NULL PRIMARY KEY,
                 nome_usuario VARCHAR NOT NULL,
-                elo BIGINT NULL
+                elo BIGINT NULL,
+                data_criacao DATE
             );
             """,
             """
-            create table historico (
-            id_usuario bigint generated by default as identity not null,
-            id_partida bigint not null,
-            id_oponente bigint,
-            precisao real null,
-            movimentos bigint null,
-            resultado boolean null,
-            data DATE,
-            constraint historico_pkey primary key (id_usuario, id_partida, id_oponente),
-            constraint historico_id_partida_fkey foreign KEY (id_partida) references partidas (id_partida),
-            constraint historico_id_usuario_fkey foreign KEY (id_usuario) references usuario (id),
-            constraint historico_id_oponente_fkey foreign KEY (id_oponente) references usuario (id)
+            CREATE TABLE historico (
+                id_partida BIGINT PRIMARY KEY,
+                id_jogador1 BIGINT NOT NULL,
+                id_jogador2 BIGINT NOT NULL,
+                elo_jogador1 BIGINT,
+                elo_jogador2 BIGINT,
+                precisao1 FLOAT,
+                precisao2 FLOAT,
+                movimentos INTEGER,
+                resultado1 VARCHAR,
+                resultado2 VARCHAR,
+                data DATE,
+                tipo VARCHAR,
+                FOREIGN KEY (id_jogador1) REFERENCES usuario(id),
+                FOREIGN KEY (id_jogador2) REFERENCES usuario(id)
             );
             """,
             """
@@ -209,6 +275,25 @@ def inserir_no_banco():
         
         for comando in comandos_sql:
             cursor.execute(comando)
+        
+        cursor.executemany("INSERT INTO usuario (id, nome_usuario, elo, data_criacao) VALUES (%s, %s, %s, %s)", dados['usuarios'])
+        cursor.executemany("INSERT INTO clubes (id_clube, nome_clube, data_criacao) VALUES (%s, %s, %s)", dados['clubes'])
+        print("Usuarios e clubes inseridos.")
+        
+        cursor.executemany("INSERT INTO clube_usuario (id_clube, id_usuario, data_join, cargo) VALUES (%s, %s, %s, %s)", dados['clube_usuario'])
+        cursor.executemany("INSERT INTO amizades (id_1, id_2, data) VALUES (%s, %s, %s)", dados['amizades'])
+        print("Relacoes clube-usuario e amizades inseridas.")
+        
+        cursor.executemany("""
+                    INSERT INTO historico 
+                    (id_partida, id_jogador1, id_jogador2, elo_jogador1, elo_jogador2, 
+                    precisao1, precisao2, movimentos, resultado1, resultado2, data, tipo) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, dados['historico'])
+        print("Historico de partidas inserido.")
+        
+        print("Todos os dados foram inseridos com sucesso!")
+            
         conn.commit()
     except Exception as e:
         print(f"Erro: {e}")
@@ -218,14 +303,5 @@ def inserir_no_banco():
         if 'conn' in locals():
             conn.close()
 
-a = usuario()
-print(a)
-p = historico(a)
-
-#for h in p:
-#    if h[0] == 1:
-#        print(h)
-#for us in a:
-#    if us[0] == 1:
-#        print(us)
-#
+dados = gerar_dados()
+inserir_no_banco(dados)
