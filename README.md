@@ -27,6 +27,8 @@ Ao executar o arquivo script_cria_e_insere.py ele retorna esta mensagem:
 ### Queries:
 Ao executar o arquivo queries.py um menu iterativo permitirá o usuário acessar as queries desejadas:
 
+![image](https://github.com/user-attachments/assets/9140da37-0af3-48b5-b179-c290e4c1a974)
+
 ### Validar dados:
 Ao executar o arquivo validar_dados.py o programa printara a seguinte mensagem ao validar corretamente os dados:
 ![image](https://github.com/user-attachments/assets/f2773834-a224-4b4b-8bf7-1740e30665c1)
