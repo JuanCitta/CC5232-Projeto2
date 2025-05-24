@@ -20,7 +20,16 @@ Esses dados podem ser validados utilizando o arquivo "validar_dados.py", que con
 Com o arquivo queries.py o usuário pode escolher entre 10 queries para que o resultado seja imprimido na tela do terminal.
 
 ## Como executar:
+### Criar e inserir dados:
+Ao executar o arquivo script_cria_e_insere.py ele retorna esta mensagem:
+![image](https://github.com/user-attachments/assets/ae707da5-7d87-476b-a583-522177646531)
 
+### Queries:
+Ao executar o arquivo queries.py um menu iterativo permitirá o usuário acessar as queries desejadas:
+
+### Validar dados:
+Ao executar o arquivo validar_dados.py o programa printara a seguinte mensagem ao validar corretamente os dados:
+![image](https://github.com/user-attachments/assets/f2773834-a224-4b4b-8bf7-1740e30665c1)
 
 
 ## Diagrama:
