@@ -5,10 +5,10 @@ import traceback
 # Conexao com o banco de dados
 def conectar():
     return psycopg2.connect(
-            host="db.kyxedeqogvcoshwlxdie.supabase.co",
-            database="postgres",
-            user="postgres",
-            password="aMUSGl7r02YQ6eKF"
+            host="",
+            database="",
+            user="",
+            password=""
         )
 
 # Descricoes e comandos SQL
