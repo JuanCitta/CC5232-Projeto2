@@ -7,9 +7,9 @@ from operator import itemgetter
 fake = Faker('pt_BR')
 
 ELO_RANGE = 200
-NUM_USUARIOS = 200
+NUM_USUARIOS = 100
 NUM_CLUBES = 20
-MAX_AMIGOS = 50
+MAX_AMIGOS = 15
 TIPOS_DE_PARTIDA = ["Bullet", "Rápida","Padrão","Xadrez960","Por correspondência"]
 CARGOS = ["Administrador", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro"]
 DATA_INICIO = date(2025,1,1)
@@ -84,7 +84,6 @@ def gerar_historico(usuarios):
             precisao_p1 = round(random.normalvariate(55,5))
             precisao_p2 = round(random.normalvariate(55,5))
             tipo = random.choice(TIPOS_DE_PARTIDA)
-            
             jogador1[2] = novo_elo1
             jogador2[2] = novo_elo2
             
@@ -140,17 +139,17 @@ def gerar_clube_usuario(usuarios,clubes):
             if us[3]< data_criacao:
                 candidatos.append((us[0]))
         if candidatos:
-            index = random.randint(0,len(candidatos))
+            index = random.randint(0,len(candidatos)-1)
             fundador = candidatos.pop(index)
         else:
             continue
         clube_usuario.append((c[0],fundador,c[2],"Fundador"))
         for u in range(1,round(abs(random.normalvariate(NUM_USUARIOS/5,NUM_USUARIOS/15)))):
-            data_join = fake.date_between_dates(c[2],DATA_FIM)
             cargo = random.choice(CARGOS)
             usuario = random.choice(users)
             users.pop(users.index(usuario))
             id_usuario = usuario[0]
+            data_join = fake.date_between_dates(usuario[3],DATA_FIM)
             if id_usuario == fundador:
                 continue
             clube_usuario.append((id_clube,id_usuario,data_join,cargo))
