@@ -6,11 +6,10 @@ from operator import itemgetter
 
 fake = Faker('pt_BR')
 
-DIAS_31 = [1,3,5,7,8,10,12]
 ELO_RANGE = 200
-NUM_USUARIOS = 10
-NUM_CLUBES = 5
-MAX_AMIGOS = 15
+NUM_USUARIOS = 200
+NUM_CLUBES = 20
+MAX_AMIGOS = 50
 TIPOS_DE_PARTIDA = ["Bullet", "Rápida","Padrão","Xadrez960","Por correspondência"]
 CARGOS = ["Administrador", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro", "Membro"]
 DATA_INICIO = date(2025,1,1)
@@ -59,24 +58,25 @@ def gerar_historico(usuarios):
             jogador2 = random.choice(oponentes_validos)
             res_esperado_p1 = 1/(1+10**((jogador2[2]-jogador1[2])/400))
             res_esperado_p2 = 1/(1+10**((jogador1[2]-jogador2[2])/400))
-            res = random.randint(0,1)
-            if res == 0 :
-                ganhador = random.choice((jogador1,jogador2))
-                if ganhador == 1:
-                    res_p1 = 1
-                    res_p1_str = "Vitória"
-                    res_p2 = 0  
-                    res_p2_str = "Derrota"
+            id_1 = jogador1[0]
+            id_2 = jogador2[0]
+            brancas = random.choice([id_1,id_2])
+            pretas = id_2 if id_1 == brancas else id_1
+            res = random.randint(0,100)
+            if res <= 90 :
+                if random.randint(0,100) <= 53:
+                    ganhador = brancas
                 else:
-                    res_p1 = 0
-                    res_p1_str = "Derrota"
-                    res_p2 = 1
-                    res_p2_str = "Vitória"
+                    ganhador = pretas
+                if ganhador == jogador1:
+                    res_p1, res_p1_str = 1, "Vitória"
+                    res_p2, res_p2_str = 0, "Derrota"  
+                else:
+                    res_p1, res_p1_str = 0, "Derrota"
+                    res_p2, res_p2_str = 1, "Vitória"
             else:
-                res_p1 = 0.5
-                res_p1_str = "Empate"
-                res_p2 = 0.5
-                res_p2_str = "Empate"
+                res_p1, res_p1_str = 0.5, "Empate"
+                res_p2, res_p2_str = 0.5, "Empate"
                 
             novo_elo1 = round(jogador1[2] + 15 * (res_p1 - res_esperado_p1))
             novo_elo2 = round(jogador2[2] + 15 * (res_p2 - res_esperado_p2))
@@ -84,10 +84,7 @@ def gerar_historico(usuarios):
             precisao_p1 = round(random.normalvariate(55,5))
             precisao_p2 = round(random.normalvariate(55,5))
             tipo = random.choice(TIPOS_DE_PARTIDA)
-            # if jogador1[0] == 2:
-            #     print(f"Elo novo: {novo_elo1} {res_p1_str} Elo oponente {novo_elo2}")
-            # elif jogador2[0] == 2:
-            #     print(f"Elo novo: {novo_elo2} {res_p2_str} Elo oponente {novo_elo1}")
+            
             jogador1[2] = novo_elo1
             jogador2[2] = novo_elo2
             
@@ -102,16 +99,19 @@ def gerar_historico(usuarios):
                 res_p1_str, res_p2_str = res_p2_str, res_p1_str  
                 precisao_p1, precisao_p2 = precisao_p2, precisao_p1  
                 novo_elo1, novo_elo2 = novo_elo2, novo_elo1  
+                brancas, pretas = pretas, brancas
             
             historico.append((
                 id_partida,                     
-                jogador1[0], jogador2[0],       #IDs
+                id_1, id_2,                     #IDs
                 jogador1[2], jogador2[2],       #Elos
                 precisao_p1, precisao_p2,       
                 movimentos,                
                 res_p1_str, res_p2_str,        
                 offset,              
-                tipo                      
+                tipo,
+                brancas,
+                pretas                      
             ))
             
             id_partida += 1
@@ -137,50 +137,60 @@ def gerar_clube_usuario(usuarios,clubes):
         candidatos = []
         data_criacao = c[2]
         for us in usuarios:
-            if us[3]<= data_criacao:
+            if us[3]< data_criacao:
                 candidatos.append((us[0]))
         if candidatos:
-            fundador = random.choice(users)
-            users.pop(users.index(fundador))
+            index = random.randint(0,len(candidatos))
+            fundador = candidatos.pop(index)
         else:
             continue
-        clube_usuario.append((c[0],fundador[0],c[2],"Fundador"))
+        clube_usuario.append((c[0],fundador,c[2],"Fundador"))
         for u in range(1,round(abs(random.normalvariate(NUM_USUARIOS/5,NUM_USUARIOS/15)))):
             data_join = fake.date_between_dates(c[2],DATA_FIM)
             cargo = random.choice(CARGOS)
             usuario = random.choice(users)
             users.pop(users.index(usuario))
             id_usuario = usuario[0]
+            if id_usuario == fundador:
+                continue
             clube_usuario.append((id_clube,id_usuario,data_join,cargo))
     return clube_usuario
 
 def gerar_amizades(usuarios):
     amizades = set()
-    amizades_existentes = {}
+    pares_amizade = set()  
     users = usuarios.copy()
+
     for u in users:
         candidatos = []
         data_criacao = u[3]
         id_usuario = u[0]
+
         for us in usuarios:
-            if us[3]<= data_criacao and us[0] != id_usuario:
-                for amizade in amizades_existentes:
-                    candidatos.append((us[0]))
-        
+            if us[3] <= data_criacao and us[0] != id_usuario:
+                candidatos.append(us)
+
         if not candidatos:
             continue
-        else:
-            for a in range(0,random.randint(0,MAX_AMIGOS)):
-                amigo = random.choice(candidatos)
-                candidatos.pop(candidatos.index(amigo))
-                id_amigo = amigo[0]
-                data = fake.date_between_dates(data_criacao,DATA_FIM)
-                if id_usuario < id_amigo:
-                    amizades.append((id_usuario,id_amigo,data))
-                else:
-                    amizades.append((id_amigo,id_usuario,data))
-            
+
+        num_amigos = random.randint(0, MAX_AMIGOS)
+        random.shuffle(candidatos)
+
+        for a in range(min(num_amigos, len(candidatos))):
+            amigo = candidatos[a]
+            id_amigo = amigo[0]
+            par = (min(id_usuario, id_amigo), max(id_usuario, id_amigo))
+
+            if par in pares_amizade:
+                continue  
+
+            data = fake.date_between_dates(date_start=data_criacao, date_end=DATA_FIM)
+            amizades.add((*par, data))
+            pares_amizade.add(par)
+
     return amizades
+
+
 
 def gerar_dados():
     usuarios = gerar_usuario()
@@ -209,7 +219,7 @@ def inserir_no_banco(dados):
         )
         cursor = conn.cursor()
         tabelas = [
-            "usuario", "partidas", "historico", "amizades", "clubes", "clube_usuario"
+            "usuario", "historico", "amizades", "clubes", "clube_usuario"
         ]
         for tabela in tabelas:
             cursor.execute(f"DROP TABLE IF EXISTS {tabela} CASCADE;")
@@ -237,6 +247,8 @@ def inserir_no_banco(dados):
                 resultado2 VARCHAR,
                 data DATE,
                 tipo VARCHAR,
+                brancas BIGINT,
+                pretas BIGINT,
                 FOREIGN KEY (id_jogador1) REFERENCES usuario(id),
                 FOREIGN KEY (id_jogador2) REFERENCES usuario(id)
             );
@@ -287,8 +299,8 @@ def inserir_no_banco(dados):
         cursor.executemany("""
                     INSERT INTO historico 
                     (id_partida, id_jogador1, id_jogador2, elo_jogador1, elo_jogador2, 
-                    precisao1, precisao2, movimentos, resultado1, resultado2, data, tipo) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    precisao1, precisao2, movimentos, resultado1, resultado2, data, tipo, brancas, pretas) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, dados['historico'])
         print("Historico de partidas inserido.")
         
